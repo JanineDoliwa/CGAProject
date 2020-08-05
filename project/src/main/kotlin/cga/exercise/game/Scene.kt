@@ -2,6 +2,7 @@ package cga.exercise.game
 
 import cga.exercise.components.camera.TronCamera
 import cga.exercise.components.framebuffer.BlurFramebuffer
+import cga.exercise.components.framebuffer.Framebuffer
 import cga.exercise.components.framebuffer.GeometryFramebuffer
 import cga.exercise.components.framebuffer.SSAOTextureFramebuffer
 import cga.exercise.components.geometry.Material
@@ -12,6 +13,7 @@ import cga.exercise.components.light.PointLight
 import cga.exercise.components.light.SpotLight
 import cga.exercise.components.shader.ShaderProgram
 import cga.exercise.components.texture.Texture2D
+import cga.exercise.components.gameobjects.Portal
 import cga.framework.GLError
 import cga.framework.GameWindow
 import cga.framework.ModelLoader
@@ -41,6 +43,7 @@ class Scene(private val window: GameWindow) {
     private val ssaoColorShader : ShaderProgram
     private val blurShader : ShaderProgram
     private val lightningShader : ShaderProgram
+    private val portalShader : ShaderProgram
 
     private val cam : TronCamera
 
@@ -59,6 +62,13 @@ class Scene(private val window: GameWindow) {
     private val gBufferObject : GeometryFramebuffer
     private val ssaoTextureFramebuffer :SSAOTextureFramebuffer
     private val blurFramebuffer : BlurFramebuffer
+
+
+
+    //Portal vars
+    private var portal1 : Portal
+    private var portal2 : Portal
+
 
     //scene setup
     init {
@@ -79,6 +89,7 @@ class Scene(private val window: GameWindow) {
         blurShader = ShaderProgram("assets/shaders/ssaoColor_vert.glsl", "assets/shaders/ssaoBlur_frag.glsl")
         lightningShader = ShaderProgram("assets/shaders/ssaoColor_vert.glsl", "assets/shaders/ssaoLightning_frag.glsl")
         screenShader = ShaderProgram("assets/shaders/screen_vert.glsl", "assets/shaders/screen_frag.glsl")
+        portalShader = ShaderProgram("assets/shaders/portal_vert.glsl", "assets/shaders/portal_frag.glsl")
 
         //Create the mesh
         val stride: Int = 8 * 4
@@ -88,20 +99,21 @@ class Scene(private val window: GameWindow) {
         val vertexAttributes = arrayOf<VertexAttribute>(attrPos, attrTC, attrNorm)
 
 
-        lightCycle = ModelLoader.loadModel("assets/Light Cycle/Light Cycle/HQ_Movie cycle.obj", Math.toRadians(-90f), Math.toRadians(90f), 0f)
+        //lightCycle = ModelLoader.loadModel("assets/Light Cycle/Light Cycle/HQ_Movie cycle.obj", Math.toRadians(-90f), Math.toRadians(90f), 0f)
+        lightCycle = ModelLoader.loadModel("assets/chell/0.obj", Math.toRadians(0f), Math.toRadians(180f), 0f)
         if(lightCycle == null)
         {
             exitProcess(1)
         }
         lightCycle?.meshes?.get(2)?.material?.emitColor = Vector3f(1f, 0f, 0f)
-        lightCycle?.scaleLocal(Vector3f(0.8f))
+        lightCycle?.scaleLocal(Vector3f(1f))
 
 
-        val diffTex = Texture2D("assets/textures/ground_diff.png", true)
+        val diffTex = Texture2D("assets/textures/con_wall_1.png", true)
         diffTex.setTexParams(GL_REPEAT, GL_REPEAT, GL_NEAREST, GL_NEAREST)
-        val emitTex = Texture2D("assets/textures/ground_emit.png", true)
+        val emitTex = Texture2D("assets/textures/con_wall_1.png", true)
         emitTex.setTexParams(GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR)
-        val specTex = Texture2D("assets/textures/ground_spec.png", true)
+        val specTex = Texture2D("assets/textures/con_wall_1.png", true)
         specTex.setTexParams(GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR)
         println(emitTex.texID)
         val groundMaterial = Material(diffTex,
@@ -118,16 +130,16 @@ class Scene(private val window: GameWindow) {
         val meshGround = Mesh(groundMesh.vertexData, groundMesh.indexData, vertexAttributes, groundMaterial)
 
         ground = Renderable(mutableListOf(meshGround))
-        ground.meshes[0].material?.emitColor = Vector3f(0f, 1f, 0f)
+        ground.meshes[0].material?.emitColor = Vector3f(1f, 1f, 1f)
 
 
         cam = TronCamera()
-        cam.rotateLocal(-35f, 0f, 0f)
-        cam.translateLocal(Vector3f(0f,  0f, 4f))
+        cam.rotateLocal(0f, 0f, 0f)
+        cam.translateLocal(Vector3f(0f,  2f, 0f))
 
         cam.parent = lightCycle!!
 
-        pointLight = PointLight(Vector3f(0f, 1f, 0f), Vector3i(255, 0, 255))
+        pointLight = PointLight(Vector3f(0f, 1f, 0f), Vector3i(255, 255, 255))
         pointLight.parent = lightCycle
 
         spotLight = SpotLight(Vector3f(0f, 1f, 0f), Vector3i(255, 255, 255), 16.5f, 20.5f)
@@ -166,13 +178,18 @@ class Scene(private val window: GameWindow) {
         blurFramebuffer = BlurFramebuffer(window.framebufferWidth, window.framebufferHeight)
         currentImage = ssaoTextureFramebuffer.ssaoColorTexture
 
+
+        //Portal Setup
+        portal1 = Portal(window, screenShader,-12f, 2.2f, -10f, 90f, 180f, 90f)
+        portal2 = Portal(window, screenShader,12f, 2.2f, 10f, 90f, 0f, 90f)
+
     }
 
     fun render(dt: Float, t: Float) {
 
         //------------------------Lukas---------------------//
 
-        gBufferObject.startRender(gBufferShader)
+        /*gBufferObject.startRender(gBufferShader)
         cam.bind(gBufferShader); GLError.checkThrow()
         ground.render(gBufferShader); GLError.checkThrow()
         lightCycle?.render(gBufferShader); GLError.checkThrow()
@@ -185,7 +202,7 @@ class Scene(private val window: GameWindow) {
 
         blurFramebuffer.startRender(blurShader, ssaoTextureFramebuffer)
         screenQuadMesh.render()
-        blurFramebuffer.stopRender()
+        blurFramebuffer.stopRender()*/
 
         //
         //Rendert auf den Bildschirm kann aus kommentiert werden
@@ -196,13 +213,62 @@ class Scene(private val window: GameWindow) {
         screenShader.use(); GLError.checkThrow()
         //testTex.bind(0)
         //screenShader.setUniform("specTex", 0)
-        GL13.glActiveTexture(GL13.GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, currentImage)
+        //GL13.glActiveTexture(GL13.GL_TEXTURE0)
+        //glBindTexture(GL_TEXTURE_2D, currentImage)
+        currentImage.bind(0)
         screenShader.setUniform("tex", 0)
         screenQuadMesh.render(); GLError.checkThrow()*/
 
 
         //------------------------Janine---------------------//
+
+        //
+        //Rendert auf den Bildschirm kann aus kommentiert werden
+        //
+        /*glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT); GLError.checkThrow()
+        staticShader.use()
+        cam.bind(staticShader)
+        pointLight.bind(staticShader, "pointLight")
+        spotLight.bind(staticShader,"spotLight", Matrix4f())
+        lightCycle?.render(staticShader)
+        ground.render(staticShader)*/
+
+
+        //------------------------Nico---------------------//
+        //Set the cameras for the two portals
+        portal1.setCameraParent(portal2.portalWall, lightCycle)
+        portal2.setCameraParent(portal1.portalWall, lightCycle)
+
+        //Render Texture from portal cameras
+        portal1.generateTexture()
+        portal2.generateTexture()
+
+        //
+        //Render auf FBO -> Portals
+        //
+        portal1.renderToFramebufferStart(staticShader)
+        //cam.bind(staticShader)
+        pointLight.bind(staticShader, "pointLight")
+        spotLight.bind(staticShader,"spotLight", Matrix4f())
+        lightCycle?.render(staticShader)
+        ground.render(staticShader)
+        portalShader.use()
+        portal1.bindPortalCamera(portalShader)
+        portal1.render(portalShader)
+        portal2.render(portalShader)
+        portal1.renderToFramebufferStop()
+
+        portal2.renderToFramebufferStart(staticShader)
+        //cam.bind(staticShader)
+        pointLight.bind(staticShader, "pointLight")
+        spotLight.bind(staticShader,"spotLight", Matrix4f())
+        lightCycle?.render(staticShader)
+        ground.render(staticShader)
+        portalShader.use()
+        portal2.bindPortalCamera(portalShader)
+        portal1.render(portalShader)
+        portal2.render(portalShader)
+        portal2.renderToFramebufferStop()
 
         //
         //Rendert auf den Bildschirm kann aus kommentiert werden
@@ -214,37 +280,46 @@ class Scene(private val window: GameWindow) {
         spotLight.bind(staticShader,"spotLight", Matrix4f())
         lightCycle?.render(staticShader)
         ground.render(staticShader)
-
+        portalShader.use()
+        cam.bind(portalShader)
+        portal1.render(portalShader)
+        portal2.render(portalShader)
 
     }
 
 
     fun update(dt: Float, t: Float) {
-        var speed = 0f
-        var rotationDirection = 0f
-        val turningCycleRadius = 3f
+        //var speed = 0f
+        var vspeed = 0f
+        var hspeed = 0f
+        //var rotationDirection = 0f
+        //val turningCycleRadius = 3f
 
         if(window.getKeyState(GLFW.GLFW_KEY_W)) {
-            speed = -5f
+            vspeed = -5f
         }
         else if(window.getKeyState(GLFW.GLFW_KEY_S)) {
-            speed = 5f
+            vspeed = 5f
         }
         if(window.getKeyState(GLFW.GLFW_KEY_A)) {
-            rotationDirection = -1f
+            //rotationDirection = -1f
+            hspeed = -5f
         }
         else if(window.getKeyState(GLFW.GLFW_KEY_D)) {
-            rotationDirection = 1f
+            //rotationDirection = 1f
+            hspeed = 5f
         }
 
-        if(rotationDirection == 0f){
+        lightCycle?.translateLocal(Vector3f(hspeed * dt, 0f, vspeed * dt))
+
+        /*if(rotationDirection == 0f){
             lightCycle?.translateLocal(Vector3f(0f, 0f, speed * dt))
         }
         else if(speed != 0f)
         {
             lightCycle?.rotateAroundPoint(0f,  (360 * speed)/(2f*Math.PI.toFloat() * turningCycleRadius) * rotationDirection * dt, 0f, lightCycle!!.getWorldPosition().add(lightCycle!!.getXAxis().mul(turningCycleRadius*rotationDirection)))
-        }
-        lightCycle?.meshes?.get(2)?.material?.emitColor = Vector3f((Math.sin(t) + 1f)/2, (Math.sin(t*2) + 1f)/2, (Math.sin(t*3) + 1f)/2)
+        }*/
+        //lightCycle?.meshes?.get(2)?.material?.emitColor = Vector3f((Math.sin(t) + 1f)/2, (Math.sin(t*2) + 1f)/2, (Math.sin(t*3) + 1f)/2)
 
         if(window.getKeyState(GLFW.GLFW_KEY_1)) {
             currentImage = gBufferObject.gPosition
@@ -259,6 +334,17 @@ class Scene(private val window: GameWindow) {
         }else if(window.getKeyState(GLFW.GLFW_KEY_6)) {
             currentImage = blurFramebuffer.blurFRamebufferTexture
         }
+
+
+
+        //Check if player goes through portal
+        //VERY PRIMITIVE AND BAD!!!
+        if (lightCycle?.getWorldPosition()?.x!! > portal2.portalWall.getWorldPosition().x-0.1f) {
+            lightCycle?.setPosition(portal2.portalCam.getWorldPosition().x+0.2f, 0f, portal2.portalCam.getWorldPosition().z)
+        }
+        else if (lightCycle?.getWorldPosition()?.x!! < portal1.portalWall.getWorldPosition().x+0.1f) {
+            lightCycle?.setPosition(portal1.portalCam.getWorldPosition().x-0.2f, 0f, portal1.portalCam.getWorldPosition().z)
+        }
     }
 
     fun onKey(key: Int, scancode: Int, action: Int, mode: Int) {}
@@ -269,7 +355,8 @@ class Scene(private val window: GameWindow) {
     fun onMouseMove(xpos: Double, ypos: Double) {
 
         //cam.rotateAroundPoint((oldMousePosY-ypos).toFloat() * 0.002f, (oldMousePosX - xpos).toFloat() * 0.002f, 0f, Vector3f(0f))
-        cam.rotateAroundPoint(0f, (oldMousePosX - xpos).toFloat() * 0.02f, 0f, Vector3f(0f))
+        //cam.rotateAroundPoint(0f, (oldMousePosX - xpos).toFloat() * 0.02f, 0f, Vector3f(0f))
+        lightCycle?.rotateLocal(0f, (oldMousePosX - xpos).toFloat() * 0.02f, 0f)
 
         oldMousePosX = xpos
         oldMousePosY = ypos
