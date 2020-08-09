@@ -2,14 +2,17 @@
 layout (location = 0) in vec2 position;
 layout (location = 1) in vec2 texCoords;
 
-out vec2 outTexCoords;
-out vec2 outPos;
+out vec2 ioTexCoords;
+out vec2 ioPos;
 
+
+/**
+* This is the shader for a 2D screen quad to render several shaders on it
+*
+**/
 void main()
 {
-
-    outTexCoords = texCoords;
-    outPos = position;
-    gl_Position = vec4(position.x, position.y, 0.0f, 1.0f);
-
+    ioTexCoords = texCoords;
+    ioPos = position;
+    gl_Position = vec4(position, 0.0f, 1.0f);
 }
