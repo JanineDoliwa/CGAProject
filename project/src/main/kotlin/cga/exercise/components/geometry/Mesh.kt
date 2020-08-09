@@ -63,7 +63,7 @@ class Mesh(vertexdata: FloatArray, indexdata: IntArray, attributes: Array<Vertex
         // call the rendering method every frame
 
         GL30.glBindVertexArray(vao)
-                GL11.glDrawElements(GL11.GL_TRIANGLES, indexcount, GL11.GL_UNSIGNED_INT, 0)
+        GL11.glDrawElements(GL11.GL_TRIANGLES, indexcount, GL11.GL_UNSIGNED_INT, 0)
         GL30.glBindVertexArray(0)
 
     }
